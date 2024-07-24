@@ -12,10 +12,11 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
-from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+api_key = os.getenv("GOOGLE_API_KEY")
+genai.configure(api_key=api_key)
 
 PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
 CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual relative path to your CSV file
@@ -46,7 +47,7 @@ def get_pdf_text_from_directory(directory):
     pdf_paths = [os.path.join(directory, filename) for filename in os.listdir(directory) if filename.endswith(".pdf")]
 
     texts = []
-    with ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(extract_text_from_pdf, pdf_path) for pdf_path in pdf_paths]
         for future in concurrent.futures.as_completed(futures):
             texts.append(future.result())
@@ -66,9 +67,15 @@ def get_text_chunks(text):
     return chunks
 
 def embed_text_chunks(chunks):
-    embeddings = GoogleGenerativeAIEmbeddings()
-    vectorstore = FAISS.from_texts(chunks, embeddings)
-    return vectorstore
+    try:
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY is not set in the environment variables")
+        embeddings = GoogleGenerativeAIEmbeddings(api_key=api_key)
+        vectorstore = FAISS.from_texts(chunks, embeddings)
+        return vectorstore
+    except Exception as e:
+        st.error(f"Error in embedding text chunks: {e}")
+        raise
 
 def process_files():
     pdf_text = get_pdf_text_from_directory(PDF_DIRECTORY)
@@ -106,29 +113,29 @@ def main():
             margin: 5px 0;
             max-width: 60%;
             align-self: flex-start;
-            word-wrap: break-word;
+            word-wrap: break-word.
         }
         .chat-icon {
-            margin-right: 10px;
+            margin-right: 10px.
         }
         .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 2s linear infinite;
+            border: 4px solid #f3f3f3.
+            border-top: 4px solid #3498db.
+            border-radius: 50%.
+            width: 20px.
+            height: 20px.
+            animation: spin 2s linear infinite.
         }
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% { transform: rotate(0deg) }
+            100% { transform: rotate(360deg) }
         }
         .chat-container {
-            display: flex;
-            flex-direction: column;
-            max-height: 70vh;
-            overflow-y: auto;
-            padding: 10px;
+            display: flex.
+            flex-direction: column.
+            max-height: 70vh.
+            overflow-y: auto.
+            padding: 10px.
         }
         </style>
     """, unsafe_allow_html=True)
