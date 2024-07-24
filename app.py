@@ -19,7 +19,7 @@ API_KEY = st.secrets["GOOGLE_API_KEY"]
 # Configure genai with the API key
 genai.configure(api_key=API_KEY)
 
-PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
+PDF_DIRECTORY = "FinancialDocs1"  # Update this with the actual directory path
 CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual relative path to your CSV file
 CACHE_FILE = "pdf_text_cache.json"
 
@@ -69,8 +69,8 @@ def get_text_chunks(text):
 
 def embed_text_chunks(chunks):
     try:
-        # Use the correct model name required by GoogleGenerativeAIEmbeddings
-        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="textembedding-gecko@001")
+        # Ensure to provide the required model field
+        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")  # Example model name
         vectorstore = FAISS.from_texts(chunks, embeddings)
         return vectorstore
     except Exception as e:
