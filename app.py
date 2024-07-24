@@ -18,7 +18,7 @@ from multiprocessing import Pool
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-PDF_DIRECTORY = "/Users/DELL/Desktop/FinancialDocs1"  # Update this with the actual directory path
+PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
 CSV_FILE_PATH = "/Users/DELL/Desktop/monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual CSV file path
 CACHE_FILE = "pdf_text_cache.json"
 
