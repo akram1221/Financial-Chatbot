@@ -3,7 +3,6 @@ import pandas as pd
 import fitz  # PyMuPDF
 import os
 import json
-import time
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
@@ -19,8 +18,8 @@ API_KEY = st.secrets["GOOGLE_API_KEY"]
 # Configure genai with the API key
 genai.configure(api_key=API_KEY)
 
-PDF_DIRECTORY = "FinancialDocs1"  # Update this with the actual directory path
-CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual relative path to your CSV file
+PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
+CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual CSV file path
 CACHE_FILE = "pdf_text_cache.json"
 
 def extract_text_from_pdf(pdf_path):
@@ -63,72 +62,124 @@ def get_csv_text(file_path):
     return text
 
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
     chunks = text_splitter.split_text(text)
     return chunks
 
-def embed_text_chunks(chunks):
-    try:
-        # Ensure to provide the required model field
-        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")  # Example model name
-        vectorstore = FAISS.from_texts(chunks, embeddings)
-        return vectorstore
-    except Exception as e:
-        st.error(f"Error in embedding text chunks: {e}")
-        raise
+def get_vector_store(text_chunks):
+    embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
+    
+    # Initialize the FAISS vector store with embeddings
+    vector_store = FAISS.from_texts(text_chunks, embeddings)
+    vector_store.save_local("faiss_index")
+
+def get_conversational_chain():
+    prompt_template = """
+    You are a highly intelligent and detail-oriented financial assistant. Follow the steps below to answer the user's financial question about a specific company:
+
+    User Question: {question}
+
+    You are an intelligent financial chatbot designed to assist users with queries related to financial reports, stock prices, investment decisions, and company performance. Your primary goal is to provide accurate, timely, and insightful answers based on the latest financial data available from reliable sources like SEC EDGAR filings and stock market data.
+
+    When responding to queries, follow these guidelines:
+
+    1. **Understand the Question**: Carefully analyze the user's question to determine what specific financial information they are seeking. Clarify any ambiguous queries by asking follow-up questions if necessary.
+    2. **Use Reliable Sources**: Base your responses on the most recent and relevant financial data available. Reference SEC EDGAR filings, particularly form 10-K for comprehensive annual reports, and check the CSV file for current stock prices from reliable financial databases.
+    3. **Provide Clear and Concise Answers**: Aim to deliver answers that are easy to understand, free from jargon, and directly address the user's query. Include relevant data points, comparisons, and explanations as needed.
+    4. **Offer Additional Insights**: Where appropriate, provide additional context or insights that may help the user make informed decisions. This can include trends, historical data, and potential future implications.
+    5. **Stay Neutral and Objective**: Maintain an impartial tone, avoiding any bias or subjective opinions. Present the facts and data as they are, without suggesting personal recommendations or advice.
+    6. **Ensure Accuracy and Consistency**: Double-check the accuracy of the data and information you provide. Ensure consistency in your answers, especially when similar queries are asked.
+
+    **Disclaimer**: The information provided is based on the latest available financial filings and stock data. This may not reflect the most current data. Consult the most recent filings for up-to-date information.
+
+    Context:
+    {context}
+
+    Answer:
+    """
+    model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
+    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+    chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
+    return chain
+
+def user_input(user_question):
+    embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
+    new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)  # Enable dangerous deserialization
+    docs = new_db.similarity_search(user_question)
+    chain = get_conversational_chain()
+    response = chain({"input_documents": docs, "question": user_question}, return_only_outputs=True)
+    return response["output_text"]
 
 def process_files():
-    pdf_text = get_pdf_text_from_directory(PDF_DIRECTORY)
-    csv_text = get_csv_text(CSV_FILE_PATH)
-    combined_text = pdf_text + "\n" + csv_text
-    chunks = get_text_chunks(combined_text)
-    vectorstore = embed_text_chunks(chunks)
-    st.session_state.vectorstore = vectorstore
+    # Process PDFs and CSV in parallel
+    with ThreadPoolExecutor() as executor:
+        pdf_future = executor.submit(get_pdf_text_from_directory, PDF_DIRECTORY)
+        csv_future = executor.submit(get_csv_text, CSV_FILE_PATH)
 
-def user_input(prompt):
-    vectorstore = st.session_state.vectorstore
-    qa_chain = load_qa_chain(vectorstore)
-    result = qa_chain.run(prompt)
-    return result
+        pdf_text = pdf_future.result()
+        csv_text = csv_future.result()
+
+    combined_text = pdf_text + csv_text
+    text_chunks = get_text_chunks(combined_text)
+    
+    # Embed text chunks with rate limiting
+    get_vector_store(text_chunks)
 
 def main():
-    st.set_page_config(page_title="Financial Q&A Chatbot", layout="wide")
+    st.set_page_config(page_title="Fintellia")
     st.title("Financial Q&A Chatbot")
 
     st.markdown("""
         <style>
         .user-message {
-            background-color: #dcf8c6;
+            text-align: right;
+            background-color: #e1f5fe;
             border-radius: 10px;
             padding: 10px;
-            margin: 5px 0;
-            max-width: 60%;
-            align-self: flex-end;
-            word-wrap: break-word;
+            margin: 10px 0;
+            display: flex;
+            justify-content: flex-end;
+            max-width: 80%;
+            margin-left: auto;
         }
         .assistant-message {
-            background-color: #ececec;
+            text-align: left;
+            background-color: #ffffff;
             border-radius: 10px;
             padding: 10px;
-            margin: 5px 0;
-            max-width: 60%;
-            align-self: flex-start;
-            word-wrap: break-word;
+            margin: 10px 0;
+            display: flex;
+            justify-content: flex-start;
+            max-width: 80%;
+            margin-right: auto;
+        }
+        .stTextInput > div > div {
+            background-color: transparent;
+        }
+        .stTextInput textarea {
+            border-radius: 10px;
         }
         .chat-icon {
-            margin-right: 10px;
+            width: 24px;
+            height: 24px;
+            margin: 0 10px;
         }
         .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 2s linear infinite;
+          width: 30px;
+          aspect-ratio: 2;
+          --_g: no-repeat radial-gradient(circle closest-side,#000 90%,#0000);
+          background: 
+            var(--_g) 0%   50%,
+            var(--_g) 50%  50%,
+            var(--_g) 100% 50%;
+          background-size: calc(100%/3) 50%;
+          animation: l3 1s infinite linear;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        @keyframes l3 {
+            20%{background-position:0%   0%, 50%  50%,100%  50%}
+            40%{background-position:0% 100%, 50%   0%,100%  50%}
+            60%{background-position:0%  50%, 50% 100%,100%   0%}
+            80%{background-position:0%  50%, 50%  50%,100% 100%}
         }
         .chat-container {
             display: flex;
