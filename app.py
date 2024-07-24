@@ -18,9 +18,10 @@ API_KEY = st.secrets["GOOGLE_API_KEY"]
 # Configure genai with the API key
 genai.configure(api_key=API_KEY)
 
-PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
+PDF_DIRECTORY = "FinancialDocs1"  # Update this with the actual directory path
 CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual CSV file path
 CACHE_FILE = "pdf_text_cache.json"
+INDEX_FILE = "faiss_index"
 
 def extract_text_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
@@ -71,10 +72,19 @@ def get_vector_store(text_chunks):
         # Ensure to provide the required model field
         embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
         vector_store = FAISS.from_texts(text_chunks, embeddings)
-        vector_store.save_local("faiss_index")
+        vector_store.save_local(INDEX_FILE)
         return vector_store
     except Exception as e:
         st.error(f"Error in embedding text chunks: {e}")
+        raise
+
+def load_vector_store():
+    try:
+        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
+        vector_store = FAISS.load_local(INDEX_FILE, embeddings, allow_dangerous_deserialization=True)
+        return vector_store
+    except Exception as e:
+        st.error(f"Error loading vector store: {e}")
         raise
 
 def get_conversational_chain():
@@ -108,9 +118,8 @@ def get_conversational_chain():
 
 def user_input(user_question):
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
-        new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)  # Enable dangerous deserialization
-        docs = new_db.similarity_search(user_question)
+        vector_store = load_vector_store()
+        docs = vector_store.similarity_search(user_question)
         chain = get_conversational_chain()
         response = chain({"input_documents": docs, "question": user_question}, return_only_outputs=True)
         return response["output_text"]
@@ -120,18 +129,21 @@ def user_input(user_question):
 
 def process_files():
     try:
-        with ThreadPoolExecutor() as executor:
-            pdf_future = executor.submit(get_pdf_text_from_directory, PDF_DIRECTORY)
-            csv_future = executor.submit(get_csv_text, CSV_FILE_PATH)
+        if not os.path.exists(INDEX_FILE):
+            with ThreadPoolExecutor() as executor:
+                pdf_future = executor.submit(get_pdf_text_from_directory, PDF_DIRECTORY)
+                csv_future = executor.submit(get_csv_text, CSV_FILE_PATH)
 
-            pdf_text = pdf_future.result()
-            csv_text = csv_future.result()
+                pdf_text = pdf_future.result()
+                csv_text = csv_future.result()
 
-        combined_text = pdf_text + csv_text
-        text_chunks = get_text_chunks(combined_text)
-        
-        # Embed text chunks with rate limiting
-        get_vector_store(text_chunks)
+            combined_text = pdf_text + csv_text
+            text_chunks = get_text_chunks(combined_text)
+            
+            # Embed text chunks with rate limiting
+            get_vector_store(text_chunks)
+        else:
+            load_vector_store()
     except Exception as e:
         st.error(f"Error processing files: {e}")
         raise
@@ -162,29 +174,29 @@ def main():
             display: flex;
             justify-content: flex-start;
             max-width: 80%;
-            margin-right: auto.
+            margin-right: auto;
         }
         .stTextInput > div > div {
-            background-color: transparent.
+            background-color: transparent;
         }
         .stTextInput textarea {
-            border-radius: 10px.
+            border-radius: 10px;
         }
         .chat-icon {
-            width: 24px.
-            height: 24px.
-            margin: 0 10px.
+            width: 24px;
+            height: 24px;
+            margin: 0 10px;
         }
         .loader {
-          width: 30px.
-          aspect-ratio: 2.
-          --_g: no-repeat radial-gradient(circle closest-side,#000 90%,#0000).
+          width: 30px;
+          aspect-ratio: 2;
+          --_g: no-repeat radial-gradient(circle closest-side,#000 90%,#0000);
           background: 
             var(--_g) 0%   50%,
             var(--_g) 50%  50%,
-            var(--_g) 100% 50%.
-          background-size: calc(100%/3) 50%.
-          animation: l3 1s infinite linear.
+            var(--_g) 100% 50%;
+          background-size: calc(100%/3) 50%;
+          animation: l3 1s infinite linear;
         }
         @keyframes l3 {
             20%{background-position:0%   0%, 50%  50%,100%  50%}
@@ -193,21 +205,21 @@ def main():
             80%{background-position:0%  50%, 50%  50%,100% 100%}
         }
         .chat-container {
-            display: flex.
-            flex-direction: column.
-            max-height: 70vh.
-            overflow-y: auto.
-            padding: 10px.
+            display: flex;
+            flex-direction: column;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 10px;
         }
         </style>
     """, unsafe_allow_html=True)
 
     if "messages" not in st.session_state:
-        st.session_state.messages are = []
+        st.session_state.messages = []
 
     if not st.session_state.get("files_processed"):
         process_files()
-        st.session_state["files_processed"] is True
+        st.session_state["files_processed"] = True
 
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     for message in st.session_state.messages:
