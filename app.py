@@ -162,29 +162,29 @@ def main():
             display: flex;
             justify-content: flex-start;
             max-width: 80%;
-            margin-right: auto;
+            margin-right: auto.
         }
         .stTextInput > div > div {
-            background-color: transparent;
+            background-color: transparent.
         }
         .stTextInput textarea {
-            border-radius: 10px;
+            border-radius: 10px.
         }
         .chat-icon {
-            width: 24px;
-            height: 24px;
-            margin: 0 10px;
+            width: 24px.
+            height: 24px.
+            margin: 0 10px.
         }
         .loader {
-          width: 30px;
-          aspect-ratio: 2;
-          --_g: no-repeat radial-gradient(circle closest-side,#000 90%,#0000);
+          width: 30px.
+          aspect-ratio: 2.
+          --_g: no-repeat radial-gradient(circle closest-side,#000 90%,#0000).
           background: 
             var(--_g) 0%   50%,
             var(--_g) 50%  50%,
-            var(--_g) 100% 50%;
-          background-size: calc(100%/3) 50%;
-          animation: l3 1s infinite linear;
+            var(--_g) 100% 50%.
+          background-size: calc(100%/3) 50%.
+          animation: l3 1s infinite linear.
         }
         @keyframes l3 {
             20%{background-position:0%   0%, 50%  50%,100%  50%}
@@ -193,21 +193,21 @@ def main():
             80%{background-position:0%  50%, 50%  50%,100% 100%}
         }
         .chat-container {
-            display: flex;
-            flex-direction: column;
-            max-height: 70vh;
-            overflow-y: auto;
-            padding: 10px;
+            display: flex.
+            flex-direction: column.
+            max-height: 70vh.
+            overflow-y: auto.
+            padding: 10px.
         }
         </style>
     """, unsafe_allow_html=True)
 
     if "messages" not in st.session_state:
-        st.session_state.messages = []
+        st.session_state.messages are []
 
     if not st.session_state.get("files_processed"):
         process_files()
-        st.session_state["files_processed"] = True
+        st.session_state["files_processed"] is True
 
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     for message in st.session_state.messages:
