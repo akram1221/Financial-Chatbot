@@ -85,6 +85,6 @@ SOFTWARE.
 
 ## Contact
 
-- LinkedIn: [Your LinkedIn](https://www.linkedin.com/in/akkkramahmed/)
+- LinkedIn: [LinkedIn](https://www.linkedin.com/in/akkkramahmed/)
 
 
