@@ -67,11 +67,15 @@ def get_text_chunks(text):
     return chunks
 
 def get_vector_store(text_chunks):
-    embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
-    
-    # Initialize the FAISS vector store with embeddings
-    vector_store = FAISS.from_texts(text_chunks, embeddings)
-    vector_store.save_local("faiss_index")
+    try:
+        # Ensure to provide the required model field
+        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
+        vector_store = FAISS.from_texts(text_chunks, embeddings)
+        vector_store.save_local("faiss_index")
+        return vector_store
+    except Exception as e:
+        st.error(f"Error in embedding text chunks: {e}")
+        raise
 
 def get_conversational_chain():
     prompt_template = """
@@ -103,27 +107,34 @@ def get_conversational_chain():
     return chain
 
 def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
-    new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)  # Enable dangerous deserialization
-    docs = new_db.similarity_search(user_question)
-    chain = get_conversational_chain()
-    response = chain({"input_documents": docs, "question": user_question}, return_only_outputs=True)
-    return response["output_text"]
+    try:
+        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
+        new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)  # Enable dangerous deserialization
+        docs = new_db.similarity_search(user_question)
+        chain = get_conversational_chain()
+        response = chain({"input_documents": docs, "question": user_question}, return_only_outputs=True)
+        return response["output_text"]
+    except Exception as e:
+        st.error(f"Error processing user input: {e}")
+        raise
 
 def process_files():
-    # Process PDFs and CSV in parallel
-    with ThreadPoolExecutor() as executor:
-        pdf_future = executor.submit(get_pdf_text_from_directory, PDF_DIRECTORY)
-        csv_future = executor.submit(get_csv_text, CSV_FILE_PATH)
+    try:
+        with ThreadPoolExecutor() as executor:
+            pdf_future = executor.submit(get_pdf_text_from_directory, PDF_DIRECTORY)
+            csv_future = executor.submit(get_csv_text, CSV_FILE_PATH)
 
-        pdf_text = pdf_future.result()
-        csv_text = csv_future.result()
+            pdf_text = pdf_future.result()
+            csv_text = csv_future.result()
 
-    combined_text = pdf_text + csv_text
-    text_chunks = get_text_chunks(combined_text)
-    
-    # Embed text chunks with rate limiting
-    get_vector_store(text_chunks)
+        combined_text = pdf_text + csv_text
+        text_chunks = get_text_chunks(combined_text)
+        
+        # Embed text chunks with rate limiting
+        get_vector_store(text_chunks)
+    except Exception as e:
+        st.error(f"Error processing files: {e}")
+        raise
 
 def main():
     st.set_page_config(page_title="Fintellia")
