@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import fitz  
+import fitz  # PyMuPDF
 import os
 import json
 import time
@@ -12,15 +12,13 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from concurrent.futures import ThreadPoolExecutor
-from multiprocessing import Pool
 
-# Load API key from Streamlit Secrets or environment variables (best practice)
-api_key = st.secrets["GOOGLE_API_KEY"]
-if os.getenv("GOOGLE_API_KEY"):  # Override with environment variable if present
-    api_key = os.getenv("GOOGLE_API_KEY")
+# Load API key from Streamlit Secrets
+API_KEY = st.secrets["GOOGLE_API_KEY"]
 
 # Configure genai with the API key
-genai.configure(api_key=api_key)
+genai.configure(api_key=API_KEY)
+
 PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
 CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual relative path to your CSV file
 CACHE_FILE = "pdf_text_cache.json"
@@ -50,7 +48,7 @@ def get_pdf_text_from_directory(directory):
     pdf_paths = [os.path.join(directory, filename) for filename in os.listdir(directory) if filename.endswith(".pdf")]
 
     texts = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor() as executor:
         futures = [executor.submit(extract_text_from_pdf, pdf_path) for pdf_path in pdf_paths]
         for future in concurrent.futures.as_completed(futures):
             texts.append(future.result())
@@ -71,7 +69,8 @@ def get_text_chunks(text):
 
 def embed_text_chunks(chunks):
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY)
+        # Use the correct model name required by GoogleGenerativeAIEmbeddings
+        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="textembedding-gecko@001")
         vectorstore = FAISS.from_texts(chunks, embeddings)
         return vectorstore
     except Exception as e:
