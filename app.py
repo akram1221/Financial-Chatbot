@@ -13,13 +13,12 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
-from multiprocessing import Pool
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
-CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual CSV file path
+CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual relative path to your CSV file
 CACHE_FILE = "pdf_text_cache.json"
 
 def extract_text_from_pdf(pdf_path):
@@ -45,8 +44,13 @@ def get_pdf_text_from_directory(directory):
         return cached_text
 
     pdf_paths = [os.path.join(directory, filename) for filename in os.listdir(directory) if filename.endswith(".pdf")]
-    with Pool() as pool:
-        texts = pool.map(extract_text_from_pdf, pdf_paths)
+
+    texts = []
+    with ThreadPoolExecutor() as executor:
+        futures = [executor.submit(extract_text_from_pdf, pdf_path) for pdf_path in pdf_paths]
+        for future in concurrent.futures.as_completed(futures):
+            texts.append(future.result())
+
     combined_text = "".join(texts)
     save_cached_text(combined_text)
     return combined_text
@@ -57,125 +61,67 @@ def get_csv_text(file_path):
     return text
 
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     chunks = text_splitter.split_text(text)
     return chunks
 
-def get_vector_store(text_chunks, batch_size=10):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    
-    # Initialize the FAISS vector store with embeddings
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-
-    vector_store.save_local("faiss_index")
-
-def get_conversational_chain():
-    prompt_template = """
-    You are a highly intelligent and detail-oriented financial assistant. Follow the steps below to answer the user's financial question about a specific company:
-
-    User Question: {question}
-
-    You are an intelligent financial chatbot designed to assist users with queries related to financial reports, stock prices, investment decisions, and company performance. Your primary goal is to provide accurate, timely, and insightful answers based on the latest financial data available from reliable sources like SEC EDGAR filings and stock market data.
-
-    When responding to queries, follow these guidelines:
-
-    1. **Understand the Question**: Carefully analyze the user's question to determine what specific financial information they are seeking. Clarify any ambiguous queries by asking follow-up questions if necessary.
-    2. **Use Reliable Sources**: Base your responses on the most recent and relevant financial data available. Reference SEC EDGAR filings, particularly form 10-K for comprehensive annual reports, and check the CSV file for current stock prices from reliable financial databases.
-    3. **Provide Clear and Concise Answers**: Aim to deliver answers that are easy to understand, free from jargon, and directly address the user's query. Include relevant data points, comparisons, and explanations as needed.
-    4. **Offer Additional Insights**: Where appropriate, provide additional context or insights that may help the user make informed decisions. This can include trends, historical data, and potential future implications.
-    5. **Stay Neutral and Objective**: Maintain an impartial tone, avoiding any bias or subjective opinions. Present the facts and data as they are, without suggesting personal recommendations or advice.
-    6. **Ensure Accuracy and Consistency**: Double-check the accuracy of the data and information you provide. Ensure consistency in your answers, especially when similar queries are asked.
-
-    **Disclaimer**: The information provided is based on the latest available financial filings and stock data. This may not reflect the most current data. Consult the most recent filings for up-to-date information.
-
-    Context:
-    {context}
-
-    Answer:
-    """
-    model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
-    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-    chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
-    return chain
-
-def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)  # Enable dangerous deserialization
-    docs = new_db.similarity_search(user_question)
-    chain = get_conversational_chain()
-    response = chain({"input_documents": docs, "question": user_question}, return_only_outputs=True)
-    return response["output_text"]
+def embed_text_chunks(chunks):
+    embeddings = GoogleGenerativeAIEmbeddings()
+    vectorstore = FAISS.from_texts(chunks, embeddings)
+    return vectorstore
 
 def process_files():
-    # Process PDFs and CSV in parallel
-    with ThreadPoolExecutor() as executor:
-        pdf_future = executor.submit(get_pdf_text_from_directory, PDF_DIRECTORY)
-        csv_future = executor.submit(get_csv_text, CSV_FILE_PATH)
+    pdf_text = get_pdf_text_from_directory(PDF_DIRECTORY)
+    csv_text = get_csv_text(CSV_FILE_PATH)
+    combined_text = pdf_text + "\n" + csv_text
+    chunks = get_text_chunks(combined_text)
+    vectorstore = embed_text_chunks(chunks)
+    st.session_state.vectorstore = vectorstore
 
-        pdf_text = pdf_future.result()
-        csv_text = csv_future.result()
-
-    combined_text = pdf_text + csv_text
-    text_chunks = get_text_chunks(combined_text)
-    
-    # Embed text chunks with rate limiting
-    get_vector_store(text_chunks)
+def user_input(prompt):
+    vectorstore = st.session_state.vectorstore
+    qa_chain = load_qa_chain(vectorstore)
+    result = qa_chain.run(prompt)
+    return result
 
 def main():
-    st.set_page_config(page_title="Fintellia")
+    st.set_page_config(page_title="Financial Q&A Chatbot", layout="wide")
     st.title("Financial Q&A Chatbot")
 
     st.markdown("""
         <style>
         .user-message {
-            text-align: right;
-            background-color: #e1f5fe;
+            background-color: #dcf8c6;
             border-radius: 10px;
             padding: 10px;
-            margin: 10px 0;
-            display: flex;
-            justify-content: flex-end;
-            max-width: 80%;
-            margin-left: auto;
+            margin: 5px 0;
+            max-width: 60%;
+            align-self: flex-end;
+            word-wrap: break-word;
         }
         .assistant-message {
-            text-align: left;
-            background-color: #ffffff;
+            background-color: #ececec;
             border-radius: 10px;
             padding: 10px;
-            margin: 10px 0;
-            display: flex;
-            justify-content: flex-start;
-            max-width: 80%;
-            margin-right: auto;
-        }
-        .stTextInput > div > div {
-            background-color: transparent;
-        }
-        .stTextInput textarea {
-            border-radius: 10px;
+            margin: 5px 0;
+            max-width: 60%;
+            align-self: flex-start;
+            word-wrap: break-word;
         }
         .chat-icon {
-            width: 24px;
-            height: 24px;
-            margin: 0 10px;
+            margin-right: 10px;
         }
         .loader {
-          width: 30px;
-          aspect-ratio: 2;
-          --_g: no-repeat radial-gradient(circle closest-side,#000 90%,#0000);
-          background: 
-            var(--_g) 0%   50%,
-            var(--_g) 50%  50%,
-            var(--_g) 100% 50%;
-          background-size: calc(100%/3) 50%;
-          animation: l3 1s infinite linear;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 2s linear infinite;
         }
-        @keyframes l3 {
-            20%{background-position:0%   0%, 50%  50%,100%  50%}
-            40%{background-position:0% 100%, 50%   0%,100%  50%}
-            60%{background-position:0%  50%, 50% 100%,100%   0%}
-            80%{background-position:0%  50%, 50%  50%,100% 100%}
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         .chat-container {
             display: flex;
