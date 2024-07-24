@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import fitz  # PyMuPDF
+import fitz  
 import os
 import json
 import time
@@ -11,14 +11,16 @@ from langchain.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
-from dotenv import load_dotenv
-import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Pool
 
-# Hardcode your API key here
-API_KEY = "AIzaSyDHOEnTdvKYz5OzuLGm4KafHS6fAcLeVDg"
+# Load API key from Streamlit Secrets or environment variables (best practice)
+api_key = st.secrets["GOOGLE_API_KEY"]
+if os.getenv("GOOGLE_API_KEY"):  # Override with environment variable if present
+    api_key = os.getenv("GOOGLE_API_KEY")
 
-genai.configure(api_key=API_KEY)
-
+# Configure genai with the API key
+genai.configure(api_key=api_key)
 PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
 CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual relative path to your CSV file
 CACHE_FILE = "pdf_text_cache.json"
