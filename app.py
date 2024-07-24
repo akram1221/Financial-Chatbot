@@ -203,7 +203,7 @@ def main():
     """, unsafe_allow_html=True)
 
     if "messages" not in st.session_state:
-        st.session_state.messages are []
+        st.session_state.messages are = []
 
     if not st.session_state.get("files_processed"):
         process_files()
