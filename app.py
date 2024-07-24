@@ -14,9 +14,10 @@ from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 import concurrent.futures
 
-load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
-genai.configure(api_key=api_key)
+# Hardcode your API key here
+API_KEY = "AIzaSyDHOEnTdvKYz5OzuLGm4KafHS6fAcLeVDg"
+
+genai.configure(api_key=API_KEY)
 
 PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
 CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual relative path to your CSV file
@@ -68,9 +69,7 @@ def get_text_chunks(text):
 
 def embed_text_chunks(chunks):
     try:
-        if not api_key:
-            raise ValueError("GOOGLE_API_KEY is not set in the environment variables")
-        embeddings = GoogleGenerativeAIEmbeddings(api_key=api_key)
+        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY)
         vectorstore = FAISS.from_texts(chunks, embeddings)
         return vectorstore
     except Exception as e:
@@ -113,29 +112,29 @@ def main():
             margin: 5px 0;
             max-width: 60%;
             align-self: flex-start;
-            word-wrap: break-word.
+            word-wrap: break-word;
         }
         .chat-icon {
-            margin-right: 10px.
+            margin-right: 10px;
         }
         .loader {
-            border: 4px solid #f3f3f3.
-            border-top: 4px solid #3498db.
-            border-radius: 50%.
-            width: 20px.
-            height: 20px.
-            animation: spin 2s linear infinite.
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 2s linear infinite;
         }
         @keyframes spin {
-            0% { transform: rotate(0deg) }
-            100% { transform: rotate(360deg) }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         .chat-container {
-            display: flex.
-            flex-direction: column.
-            max-height: 70vh.
-            overflow-y: auto.
-            padding: 10px.
+            display: flex;
+            flex-direction: column;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 10px;
         }
         </style>
     """, unsafe_allow_html=True)
