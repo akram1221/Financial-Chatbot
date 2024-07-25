@@ -15,6 +15,9 @@ from concurrent.futures import ThreadPoolExecutor
 # Load API key from Streamlit Secrets
 API_KEY = st.secrets["GOOGLE_API_KEY"]
 
+# Debug: Print API key to ensure it is being retrieved correctly
+st.write(f"API_KEY: {API_KEY}")
+
 # Configure genai with the API key
 genai.configure(api_key=API_KEY)
 
@@ -204,7 +207,7 @@ def main():
             80%{background-position:0%  50%, 50%  50%,100% 100%}
         }
         .chat-container {
-            display: flex
+            display: flex;
             flex-direction: column;
             max-height: 70vh;
             overflow-y: auto;
