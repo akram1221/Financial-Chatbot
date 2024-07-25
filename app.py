@@ -13,12 +13,12 @@ from langchain.prompts import PromptTemplate
 from concurrent.futures import ThreadPoolExecutor
 
 # Load API key from Streamlit Secrets
-API_KEY = st.secrets["GOOGLE_API_KEY"]
+API_KEY = st.secrets["GOOGLE_API_KEY"]["value"]
 
 # Configure genai with the API key
 genai.configure(api_key=API_KEY)
 
-PDF_DIRECTORY = "FinancialDocs1"  # Update this with the actual directory path
+PDF_DIRECTORY = "Financial docs"  # Update this with the actual directory path
 CSV_FILE_PATH = "monthly_stock_prices_2019_2023_yf.csv"  # Update this with the actual CSV file path
 CACHE_FILE = "pdf_text_cache.json"
 INDEX_FILE = "faiss_index"
