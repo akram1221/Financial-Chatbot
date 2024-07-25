@@ -12,6 +12,9 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from concurrent.futures import ThreadPoolExecutor
 
+# Set page config
+st.set_page_config(page_title="Fintellia")
+
 # Load API key from Streamlit Secrets
 API_KEY = st.secrets["GOOGLE_API_KEY"]["value"]
 
@@ -151,7 +154,6 @@ def process_files():
         raise
 
 def main():
-    st.set_page_config(page_title="Fintellia")
     st.title("Financial Q&A Chatbot")
 
     st.markdown("""
