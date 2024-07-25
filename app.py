@@ -13,7 +13,7 @@ from langchain.prompts import PromptTemplate
 from concurrent.futures import ThreadPoolExecutor
 
 # Load API key from Streamlit Secrets
-API_KEY = st.secrets["GOOGLE_API_KEY"]["value"]
+API_KEY = st.secrets["GOOGLE_API_KEY"]
 
 # Configure genai with the API key
 genai.configure(api_key=API_KEY)
@@ -69,8 +69,7 @@ def get_text_chunks(text):
 
 def get_vector_store(text_chunks):
     try:
-        # Ensure to provide the required model field
-        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
+        embeddings = GoogleGenerativeAIEmbeddings(google_api_key=API_KEY, model="models/embedding-001")
         vector_store = FAISS.from_texts(text_chunks, embeddings)
         vector_store.save_local(INDEX_FILE)
         return vector_store
@@ -80,7 +79,7 @@ def get_vector_store(text_chunks):
 
 def load_vector_store():
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(api_key=API_KEY, model="models/embedding-001")
+        embeddings = GoogleGenerativeAIEmbeddings(google_api_key=API_KEY, model="models/embedding-001")
         vector_store = FAISS.load_local(INDEX_FILE, embeddings, allow_dangerous_deserialization=True)
         return vector_store
     except Exception as e:
@@ -205,7 +204,7 @@ def main():
             80%{background-position:0%  50%, 50%  50%,100% 100%}
         }
         .chat-container {
-            display: flex;
+            display: flex
             flex-direction: column;
             max-height: 70vh;
             overflow-y: auto;
